@@ -7,14 +7,18 @@
 		this.bodies = [new Player(this, gameSize)].concat(createInvaders(this, gameSize));
 
 		var self = this;
-		var tick = function () {
-			self.update();
-			self.draw(screen, gameSize);
-			if(!self.ended){
-				requestAnimationFrame(tick);
-			}
-		};
-		tick();
+		loadSound(["shoot"], function (sounds) {
+			self.sounds = sounds;
+
+			var tick = function () {
+				self.update();
+				self.draw(screen, gameSize);
+				if(!self.ended){
+					requestAnimationFrame(tick);
+				}
+			};
+			tick();
+		});
 	};
 
 	Game.prototype = {
@@ -33,7 +37,16 @@
 			}
 		},
 		draw: function (screen, gameSize) {
-			screen.clearRect(0, 0, gameSize.x, gameSize.y) ;
+			screen.clearRect(0, 0, gameSize.x, gameSize.y);
+
+			// clear away bullets outside screen from bodies
+			function bulletOutsideScreen (b) {
+				var isBullet = b instanceof Bullet;
+				var outside = b.center.y < 0 || b.center.y > gameSize.y;					
+				return !(isBullet && outside);
+			}
+
+			this.bodies = this.bodies.filter(bulletOutsideScreen);
 		
 			for (var i = 0; i < this.bodies.length; i++) {
 				drawRect(screen, this.bodies[i]);
@@ -57,7 +70,7 @@
 		this.center = {x: gameSize.x/2, y: gameSize.y - this.size.y};
 		this.keyboarder = new Keyboarder();
 		this.spaceUp = true;
-	}
+	};
 	Player.prototype = {
 		update: function () {
 			if(this.keyboarder.isDown(this.keyboarder.KEYS.LEFT)){
@@ -70,6 +83,8 @@
 				this.spaceUp = false;
 				var bullet = new Bullet({x: this.center.x, y: this.center.y - this.size.y/2 }, {x: 0, y: -6});
 				this.game.addBody(bullet);
+				this.game.sounds.shoot.load();
+				this.game.sounds.shoot.play();
 			}
 			if(!this.keyboarder.isDown(this.keyboarder.KEYS.SPACE)){
 				this.spaceUp = true;
@@ -81,7 +96,7 @@
 		this.size = {x:2, y:2};
 		this.center = center;
 		this.velocity = velocity;
-	}
+	};
 	Bullet.prototype = {
 		update: function () {
 			this.center.x += this.velocity.x;
@@ -96,12 +111,12 @@
 		this.center = center;
 		this.patrolX = 0;
 		this.speedX = 0.3;
-	}
+	};
 	Invader.prototype = {
 		update: function () {
 			if (this.patrolX < -20 || this.patrolX > 50) {
 				this.speedX = -this.speedX;
-			};
+			}
 			this.center.x += this.speedX;
 			this.patrolX +=  this.speedX;
 
@@ -111,7 +126,7 @@
 					y:this.center.y+this.size.y/2},
 					{x:Math.random() - 0.5, y: +2});
 				this.game.addBody(bullet);
-			};
+			}
 		}
 	};
 
@@ -120,17 +135,17 @@
 
 		window.onkeydown = function (e) {
 			keyState[e.keyCode] = true;
-		}
+		};
 		window.onkeyup = function (e) {
 			keyState[e.keyCode] = false;
-		}
+		};
 
 		this.isDown = function (keyCode) {
 			return keyState[keyCode] === true;
-		}
+		};
 
 		this.KEYS =  { LEFT: 37, RIGHT: 39, SPACE: 32 };
-	}
+	};
 
 	// functions
 	var doCollide = function (b1, b2) {
@@ -139,7 +154,7 @@
 				b1.center.y + b1.size.y / 2 < b2.center.y - b2.size.y / 2 ||
 				b1.center.x - b1.size.x / 2 > b2.center.x + b2.size.x / 2 ||
 				b1.center.y - b1.size.y / 2 > b2.center.y + b2.size.y / 2);
-	}
+	};
 
 	var createInvaders = function (game, gameSize) {
 		var invaders = [];
@@ -147,35 +162,32 @@
 			var x = 30 + (i % 8) * 30 ;
 			var y = 30 + (i % 3) * 30 ;
 			invaders.push(new Invader(game, gameSize, {x: x, y:y}));
-		};
+		}
 		return invaders;
-	}
+	};
 
 	var drawRect = function (screen, body) {
 		screen.fillRect(body.center.x - body.size.x/2,
 						body.center.y - body.size.y/2,
 						body.size.x, body.size.y);
-	}
+	};
 
-	var loadSound = function (files, callback) {
-		var sounds = {};
-		var counter = files.length;
-		var loaded = function (name) {
-			sounds[name] = this;
+	var loadSound = function (soundNames, callback) {
+		var sounds = {}, counter = soundNames.length;
+		var loaded = function (audio, name) {
+			sounds[name] = audio;
 			counter--;
-		 	this.removeEventListener('canplaythrough', loaded);			 	
-		 	if(counter === 0){
-		 		callback(sounds);
-		 	}
+		 	audio.removeEventListener('canplaythrough', loaded);
+		 	if(counter === 0){ callback(sounds); }
 		};
-		files.forEach(function (file) {
-			var sound = new Audio(file.url);
-			sound.addEventListener('canplaythrough', loaded.bind(sound, file.name));
-			sound.load();
-		})
-	}
+		soundNames.forEach(function (name) {
+			var audio = new Audio('sound/' + name + '.wav');
+			audio.addEventListener('canplaythrough', loaded.bind(this, audio, name));
+			audio.load();
+		});
+	};
 
 	window.onload = function () {
-		new Game("screen");
-	}
+		window.game = new Game("screen");
+	};
 }());
