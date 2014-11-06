@@ -7,13 +7,14 @@
 		this.bodies = [new Player(this, gameSize)].concat(createInvaders(this, gameSize));
 
 		var self = this;
-		loadSound(["shoot"], function (sounds) {
+		loadSound(["shoot", "win", "loose"], function (sounds) {
 			self.sounds = sounds;
+			self.ended = false;
 
 			var tick = function () {
 				self.update();
 				self.draw(screen, gameSize);
-				if(!self.ended){
+				if(!this.ended){
 					requestAnimationFrame(tick);
 				}
 			};
@@ -51,6 +52,12 @@
 			for (var i = 0; i < this.bodies.length; i++) {
 				drawRect(screen, this.bodies[i]);
 			}
+			if(!(this.bodies[0] instanceof Player)){
+				this.gameOver(false, screen);
+			}
+			if(this.bodies.length === 1){
+				this.gameOver(true, screen);
+			}
 		},
 		addBody: function (body) {
 			this.bodies.push(body);
@@ -61,6 +68,14 @@
 					b.center.y > invader.center.y &&
 					Math.abs(b.center.x - invader.center.x) < invader.size.x/2;
 			}).length > 0;
+		},
+		gameOver: function (userWon, screen) {		
+			screen.font="30px Georgia";
+			var txt = !userWon ? "You Loose!" : "You Win!";
+			var txtSize = screen.measureText(txt);
+			screen.strokeText(txt, screen.canvas.width / 2 - (txtSize.width/2), screen.canvas.height/2-15);
+			(!userWon ? this.sounds.loose : this.sounds.win).play();
+			this.ended = true;
 		}
 	};
 
